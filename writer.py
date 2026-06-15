@@ -2,8 +2,9 @@ import sys
 import cv2
 import time
 import numpy as np
-import delta.resize2 as resize
-import delta.delta   as delta
+import delta
+import resize
+import string2
 
 
 file = sys.argv[1]
