@@ -8,7 +8,7 @@ import time
 import math
 import cv2
 import numpy as np
-import delta.delta as delta
+import delta
 
 '''
 file = sys.argv[1]
