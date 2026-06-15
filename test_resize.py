@@ -4,7 +4,7 @@ import array
 import cv2
 import numpy as np
 import math
-import delta.resize as resize
+import resize 
 
 xdim = 512
 ydim = 512
