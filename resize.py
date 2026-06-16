@@ -12,6 +12,7 @@ def resize_x(src: np.ndarray, new_xdim: int) -> np.ndarray:
             segment_length = new_xdim // number_of_segments
             keep_mask = np.ones(xdim, dtype=bool)
             drop = np.arange(segment_length, xdim, segment_length + 1)
+            drop = drop[drop < xdim - 1]
             keep_mask[drop] = False
         else:
             number_of_segments = xdim - new_xdim
@@ -20,6 +21,7 @@ def resize_x(src: np.ndarray, new_xdim: int) -> np.ndarray:
             if remainder == 0:
                 keep_mask = np.ones(xdim, dtype=bool)
                 drop = np.arange(segment_length, xdim, segment_length + 1)
+                drop = drop[drop < xdim - 1]
                 keep_mask[drop] = False
             else:
                 is_long = np.zeros(number_of_segments, dtype=bool)
@@ -31,7 +33,11 @@ def resize_x(src: np.ndarray, new_xdim: int) -> np.ndarray:
                 drop = np.cumsum(seg_lengths)[:-1]
                 keep_mask = np.ones(xdim, dtype=bool)
                 keep_mask[drop] = False
-        return src[:, keep_mask]
+        #return src[:, keep_mask]
+        result = src[:, keep_mask]
+        if result.shape[1] > new_xdim:
+            result = result[:, :-1]
+        return result
 
     else:  # new_xdim > xdim
         number_of_segments = new_xdim - xdim + 1
@@ -78,6 +84,7 @@ def resize_y(src: np.ndarray, new_ydim: int) -> np.ndarray:
             segment_length = new_ydim // number_of_segments
             keep_mask = np.ones(ydim, dtype=bool)
             drop = np.arange(segment_length, ydim, segment_length + 1)
+            drop = drop[drop < ydim - 1]
             keep_mask[drop] = False
         else:
             number_of_segments = ydim - new_ydim
@@ -86,6 +93,7 @@ def resize_y(src: np.ndarray, new_ydim: int) -> np.ndarray:
             if remainder == 0:
                 keep_mask = np.ones(ydim, dtype=bool)
                 drop = np.arange(segment_length, ydim, segment_length + 1)
+                drop = drop[drop < ydim - 1]
                 keep_mask[drop] = False
             else:
                 is_long = np.zeros(number_of_segments, dtype=bool)
@@ -97,7 +105,11 @@ def resize_y(src: np.ndarray, new_ydim: int) -> np.ndarray:
                 drop = np.cumsum(seg_lengths)[:-1]
                 keep_mask = np.ones(ydim, dtype=bool)
                 keep_mask[drop] = False
-        return src[keep_mask, :]
+        #return src[keep_mask, :]
+        result = src[keep_mask, :]
+        if result.shape[0] > new_ydim:
+            result = result[:-1, :]
+        return result
 
     else:  # new_ydim > ydim
         number_of_segments = new_ydim - ydim + 1
@@ -131,6 +143,7 @@ def resize_y(src: np.ndarray, new_ydim: int) -> np.ndarray:
                                ).astype(np.uint8)
         return dst
 
+# Slightly less opaque versions
 def resize_x2(src: np.ndarray, new_xdim: int) -> np.ndarray:
     ydim, xdim = src.shape
     if new_xdim == xdim:
@@ -143,6 +156,7 @@ def resize_x2(src: np.ndarray, new_xdim: int) -> np.ndarray:
             segment_length = new_xdim // number_of_segments
             keep_mask = np.ones(xdim, dtype=bool)
             drop = np.arange(segment_length, xdim, segment_length + 1)
+            drop = drop[drop < xdim - 1]
             keep_mask[drop] = False
         else:
             number_of_segments = xdim - new_xdim
@@ -151,6 +165,7 @@ def resize_x2(src: np.ndarray, new_xdim: int) -> np.ndarray:
             if remainder == 0:
                 keep_mask = np.ones(xdim, dtype=bool)
                 drop = np.arange(segment_length, xdim, segment_length + 1)
+                drop = drop[drop < xdim - 1]
                 keep_mask[drop] = False
             else:
                 is_long = np.zeros(number_of_segments, dtype=bool)
@@ -162,7 +177,10 @@ def resize_x2(src: np.ndarray, new_xdim: int) -> np.ndarray:
                 drop = np.cumsum(seg_lengths)[:-1]
                 keep_mask = np.ones(xdim, dtype=bool)
                 keep_mask[drop] = False
-        return src[:, keep_mask]
+        result = src[:, keep_mask]
+        if result.shape[1] > new_xdim:
+            result = result[:, :-1]
+        return result
 
     else:  # new_xdim > xdim
         number_of_segments = new_xdim - xdim + 1
@@ -209,6 +227,7 @@ def resize_y2(src: np.ndarray, new_ydim: int) -> np.ndarray:
             segment_length = new_ydim // number_of_segments
             keep_mask = np.ones(ydim, dtype=bool)
             drop = np.arange(segment_length, ydim, segment_length + 1)
+            drop = drop[drop < ydim - 1]
             keep_mask[drop] = False
         else:
             number_of_segments = ydim - new_ydim
@@ -217,6 +236,7 @@ def resize_y2(src: np.ndarray, new_ydim: int) -> np.ndarray:
             if remainder == 0:
                 keep_mask = np.ones(ydim, dtype=bool)
                 drop = np.arange(segment_length, ydim, segment_length + 1)
+                drop = drop[drop < ydim - 1]
                 keep_mask[drop] = False
             else:
                 is_long = np.zeros(number_of_segments, dtype=bool)
@@ -228,7 +248,10 @@ def resize_y2(src: np.ndarray, new_ydim: int) -> np.ndarray:
                 drop = np.cumsum(seg_lengths)[:-1]
                 keep_mask = np.ones(ydim, dtype=bool)
                 keep_mask[drop] = False
-        return src[keep_mask, :]
+        result = src[keep_mask, :]
+        if result.shape[0] > new_ydim:
+            result = result[:-1, :]
+        return result
 
     else:  # new_ydim > ydim
         number_of_segments = new_ydim - ydim + 1
