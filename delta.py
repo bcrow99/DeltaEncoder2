@@ -239,3 +239,96 @@ def get_values_from_gradient_deltas(src: np.ndarray, xdim: int, ydim: int, init_
         dst[i, xdim - 1] = dst[i, xdim - 2] + src[i, xdim - 1]
 
     return dst.astype(np.uint8).ravel()
+
+def get_mixed_deltas_from_values(src: np.ndarray) -> tuple:
+    src = src.astype(np.int16)
+    ydim, xdim = src.shape
+
+    # --- Pass 1: choose best filter for each row ---
+    # Compute shannon limit for each of 4 filters on interior pixels,
+    # pick the filter with the lowest estimated bit cost.
+    map_ = np.zeros(ydim - 1, dtype=np.int8)
+
+    for i in range(1, ydim):
+        interior = np.s_[i, 1:xdim - 1]  # interior columns only
+        k = np.arange(1, xdim - 1) + i * xdim  # flat indices for interior
+
+        a = src[i,     1:xdim - 1]
+        b = src[i - 1, 1:xdim - 1]
+        c = src[i - 1, 0:xdim - 2]
+        d = (a + b - c).astype(np.int32)
+
+        deltas = np.stack([
+            src[i, 1:xdim-1] - src[i,     0:xdim-2],   # 0: horizontal
+            src[i, 1:xdim-1] - src[i - 1, 1:xdim-1],   # 1: vertical
+            src[i, 1:xdim-1] - ((src[i, 0:xdim-2].astype(np.int32) +
+                                  src[i-1, 1:xdim-1].astype(np.int32)) // 2),  # 2: average
+            np.where(                                     # 3: paeth
+                (np.abs(a - d) <= np.abs(b - d)) & (np.abs(a - d) <= np.abs(c - d)),
+                src[i, 1:xdim-1] - a,
+                np.where(np.abs(b - d) <= np.abs(c - d),
+                         src[i, 1:xdim-1] - b,
+                         src[i, 1:xdim-1] - c)
+            )
+        ], axis=0)  # shape: (4, xdim-2)
+
+        # Shannon limit: compute frequency distribution per filter,
+        # pick filter with lowest estimated compressed size
+        best_filter = 0
+        best_limit  = float('inf')
+        for f in range(4):
+            d_f    = deltas[f].astype(np.int32)
+            d_f   -= d_f.min()                        # shift to non-negative
+            counts = np.bincount(d_f)
+            counts = counts[counts > 0]
+            probs  = counts / counts.sum()
+            shannon = -np.sum(probs * np.log2(probs)) * len(d_f)
+            if shannon < best_limit:
+                best_limit  = shannon
+                best_filter = f
+        map_[i - 1] = best_filter
+
+    # --- Pass 2: collect deltas using chosen filter per row ---
+    dst        = np.zeros((ydim, xdim), dtype=np.int16)
+    init_value = int(src[0, 0])
+
+    # Row 0: horizontal deltas
+    dst[0, 1:] = np.diff(src[0])
+
+    for i in range(1, ydim):
+        # Column 0: vertical delta from running init_value
+        dst[i, 0]  = src[i, 0] - src[i - 1, 0]
+        m          = int(map_[i - 1])
+
+        if m == 0:   # horizontal
+            dst[i, 1:] = np.diff(src[i])
+        elif m == 1: # vertical
+            dst[i, 1:xdim - 1] = src[i, 1:xdim-1] - src[i-1, 1:xdim-1]
+            dst[i, xdim - 1]   = src[i, xdim-1] - src[i, xdim-2]
+        elif m == 2: # average
+            dst[i, 1:xdim-1] = src[i, 1:xdim-1] - (
+                (src[i, 0:xdim-2].astype(np.int32) +
+                 src[i-1, 1:xdim-1].astype(np.int32)) // 2)
+            dst[i, xdim-1] = src[i, xdim-1] - src[i, xdim-2]
+        elif m == 3: # paeth
+            for j in range(1, xdim - 1):
+                a = int(src[i,     j - 1])
+                b = int(src[i - 1, j    ])
+                c = int(src[i - 1, j - 1])
+                d = a + b - c
+                if abs(a-d) <= abs(b-d) and abs(a-d) <= abs(c-d):
+                    dst[i, j] = src[i, j] - a
+                elif abs(b-d) <= abs(c-d):
+                    dst[i, j] = src[i, j] - b
+                else:
+                    dst[i, j] = src[i, j] - c
+            dst[i, xdim-1] = src[i, xdim-1] - src[i, xdim-2]
+
+    sum_ = int(np.abs(dst).sum())
+    return init_value, dst.ravel(), map_
+
+
+def get_values_from_mixed_deltas(src: np.ndarray, init_value: int, map_: np.ndarray) -> np.ndarray:
+    # src is a flat ravel; map_ tells us the filter used per row
+    xdim = ... # caller must reshape — see note below
+    # Since shape isn't recoverable from src alone, accept 2D directly:
